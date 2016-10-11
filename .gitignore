@@ -1,6 +1,7 @@
 assets/*.ttf
 win32/build
 win32/export
+win32/lua
 external
 win32/imgui.ini
 *.dll
