@@ -1,0 +1,8 @@
+assets/*.ttf
+win32/build
+win32/export
+external
+win32/imgui.ini
+*.dll
+*.exe
+
