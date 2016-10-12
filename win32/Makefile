@@ -22,7 +22,7 @@
 ASSETS := ..\assets
 BUILD := build
 EXTERNAL := ..\external
-INC := ..\src
+INC := ..\cpp
 
 IMGUI := $(EXTERNAL)\imgui-1.49
 LUA := $(EXTERNAL)\LuaJIT-2.0.4\src

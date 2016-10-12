@@ -1,20 +1,39 @@
 #include <SFML/Graphics.hpp>
 #include <windows.h>
-#include <cmath>
+#include <process.h> // _beginthreadex
+#include <atomic>
+#include <stdint.h>
+
+#include "replay.h"
 
 static sf::RenderWindow* s_renderWindow;
+static LARGE_INTEGER s_lastTime;
+static LARGE_INTEGER s_perfFreq;
+static std::atomic_bool s_running;
 
-LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    switch (message)
-    {
-        case WM_CLOSE:
-        {
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value)*1024LL)
+#define Gigabytes(Value) (Megabytes(Value)*1024LL)
+#define Terabytes(Value) (Gigabytes(Value)*1024LL)
+
+struct PlatformAPI {
+    // Platform functions go here
+};
+
+struct Memory {
+    uint64_t permanentStorageSize;
+    void* permanentStorage; // This gets casted to GameMemory
+
+    PlatformAPI platformAPI;
+};
+
+LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_CLOSE: {
             PostQuitMessage(0);
             return 0;
         }
-        case WM_SIZE:
-        {
+        case WM_SIZE: {
             if (s_renderWindow) {
                 s_renderWindow->setSize(sf::Vector2u(LOWORD(lParam), HIWORD(lParam)));
                 s_renderWindow->setView(sf::View(sf::FloatRect(0.0f, 0.0f, (float)LOWORD(lParam), (float)HIWORD(lParam))));
@@ -26,8 +45,17 @@ LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam
     return DefWindowProc(handle, message, wParam, lParam);
 }
 
-int main()
-{
+unsigned int GameMain(void*) {
+
+
+
+
+    return EXIT_SUCCESS;
+}
+
+int main() {
+    QueryPerformanceFrequency(&s_perfFreq);
+
     HINSTANCE instance = GetModuleHandle(NULL);
 
     auto className = L"StarlightClassName";
@@ -93,33 +121,44 @@ int main()
     sprite1.setPosition(sprite1.getOrigin());
     sprite1.setScale(5.0f, 5.0f);
 
-    sf::Clock clock;
+#ifdef MJ_DEBUG
+    LPVOID baseAddress = (LPVOID)Terabytes(2);
+#else
+    LPVOID baseAddress = 0;
+#endif
 
+    Memory memory = {};
+    memory.permanentStorageSize = Megabytes(256);
+    memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+
+    // Spawn game thread
+    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, NULL, 0, NULL);
+    if (!thread) {
+        return EXIT_FAILURE;
+    }
+
+/*
     MSG message;
     message.message = static_cast<UINT>(~WM_QUIT);
-    while (message.message != WM_QUIT)
-    {
-        if (PeekMessage(&message, NULL, 0, 0, PM_REMOVE))
-        {
+    while (message.message != WM_QUIT) {
+        if (PeekMessage(&message, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&message);
             DispatchMessage(&message);
-        }
-        else
-        {
-            float time = clock.getElapsedTime().asSeconds();
-
+        } else {
             s_renderWindow->clear();
-
-            sprite1.setRotation(time * 100);
             s_renderWindow->draw(sprite1);
-
             s_renderWindow->display();
         }
     }
+*/
 
+    // Close thread
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+
+    // Close window
     DestroyWindow(hwnd);
     UnregisterClass(className, instance);
-
     delete s_renderWindow;
 
     return EXIT_SUCCESS;
