@@ -3,13 +3,36 @@
 #include <process.h> // _beginthreadex
 #include <atomic>
 #include <stdint.h>
+#include <queue>
+#include <mutex>
 
 #include "replay.h"
+
+class MSGQueue {
+public:
+    void Enqueue(MSG msg) {
+        std::lock_guard<std::mutex> lock(mutex);
+        queue.push(msg);
+    }
+    bool Dequeue(MSG* msg) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (queue.empty()) {
+            return false;
+        }
+        *msg = queue.front();
+        queue.pop();
+        return true;
+    }
+private:
+    std::queue<MSG> queue;
+    std::mutex mutex;
+};
 
 static sf::RenderWindow* s_renderWindow;
 static LARGE_INTEGER s_lastTime;
 static LARGE_INTEGER s_perfFreq;
 static std::atomic_bool s_running;
+static MSGQueue s_queue;
 
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
@@ -27,9 +50,35 @@ struct Memory {
     PlatformAPI platformAPI;
 };
 
+void ParseMessages() {
+    MSG msg;
+    while (s_queue.Dequeue(&msg)) {
+/*
+        if (g_renderApi) {
+            g_renderApi->ImGuiHandleEvent(&msg);
+        }
+        switch (msg.message)
+        {
+        case WM_KEYDOWN:
+            if (msg.wParam < NUM_KEYBOARD_KEYS) {
+                s_controls.ChangeKeyState((int)msg.wParam, true);
+            }
+            break;
+        case WM_KEYUP:
+            if (msg.wParam < NUM_KEYBOARD_KEYS) {
+                s_controls.ChangeKeyState((int)msg.wParam, false);
+            }
+            break;
+        }
+*/
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
+    s_queue.Enqueue({ handle, message, wParam, lParam });
     switch (message) {
         case WM_CLOSE: {
+            s_running.store(false);
             PostQuitMessage(0);
             return 0;
         }
@@ -46,8 +95,24 @@ LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam
 }
 
 unsigned int GameMain(void*) {
+    sf::Texture texture1;
+    if (!texture1.loadFromFile("../assets/test.png")) {
+        return EXIT_FAILURE;
+    }
+    sf::Sprite sprite1(texture1);
+    sprite1.setOrigin(sf::Vector2f(texture1.getSize()) / 2.f);
+    sprite1.setPosition(sprite1.getOrigin());
+    sprite1.setScale(5.0f, 5.0f);
 
+    while (s_running.load()) {
+        ParseMessages();
+        //g_renderApi->ImGuiNewFrame();
+        //s_gameFuncs.UpdateGame(&gameInfo);
 
+        s_renderWindow->clear();
+        s_renderWindow->draw(sprite1);
+        s_renderWindow->display();
+    }
 
 
     return EXIT_SUCCESS;
@@ -89,8 +154,7 @@ int main() {
     wchar_t computerName[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD dwSize = sizeof(computerName);
     GetComputerNameW(computerName, &dwSize);
-    if (wcscmp(computerName, L"JOTARO") == 0 ||
-        wcscmp(computerName, L"JOSUKE") == 0) {
+    if (wcscmp(computerName, L"JOTARO") == 0) {
         x += 1920;
     }
 #endif
@@ -112,15 +176,6 @@ int main() {
 
     s_renderWindow = new sf::RenderWindow(hwnd);
 
-    sf::Texture texture1;
-    if (!texture1.loadFromFile("../assets/test.png")) {
-        return EXIT_FAILURE;
-    }
-    sf::Sprite sprite1(texture1);
-    sprite1.setOrigin(sf::Vector2f(texture1.getSize()) / 2.f);
-    sprite1.setPosition(sprite1.getOrigin());
-    sprite1.setScale(5.0f, 5.0f);
-
 #ifdef MJ_DEBUG
     LPVOID baseAddress = (LPVOID)Terabytes(2);
 #else
@@ -132,9 +187,18 @@ int main() {
     memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
     // Spawn game thread
+    s_running.store(true);
     HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, NULL, 0, NULL);
     if (!thread) {
         return EXIT_FAILURE;
+    }
+
+    // Message loop
+    MSG msg;
+    while (s_running.load() && GetMessageW(&msg, nullptr, 0, 0))
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
     }
 
 /*
@@ -145,9 +209,7 @@ int main() {
             TranslateMessage(&message);
             DispatchMessage(&message);
         } else {
-            s_renderWindow->clear();
-            s_renderWindow->draw(sprite1);
-            s_renderWindow->display();
+            
         }
     }
 */
