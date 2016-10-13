@@ -1,4 +1,6 @@
-#include <SFML/Graphics.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <windows.h>
 #include <process.h> // _beginthreadex
 #include <atomic>
@@ -7,6 +9,7 @@
 #include <mutex>
 
 #include "replay.h"
+#include "replay_game.h"
 
 class MSGQueue {
 public:
@@ -28,8 +31,11 @@ private:
     std::mutex mutex;
 };
 
+static const char* s_dllName = "replay.dll";
+
+static HWND s_hwnd;
+static LARGE_INTEGER s_lastDLLLoadTime;
 static sf::RenderWindow* s_renderWindow;
-static LARGE_INTEGER s_lastTime;
 static LARGE_INTEGER s_perfFreq;
 static std::atomic_bool s_running;
 static MSGQueue s_queue;
@@ -45,7 +51,7 @@ struct PlatformAPI {
 
 struct Memory {
     uint64_t permanentStorageSize;
-    void* permanentStorage; // This gets casted to GameMemory
+    void* permanentStorage; // This gets casted to GameState
 
     PlatformAPI platformAPI;
 };
@@ -94,17 +100,62 @@ LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam
     return DefWindowProc(handle, message, wParam, lParam);
 }
 
-unsigned int GameMain(void* params) {
-    s_renderWindow = new sf::RenderWindow(*((HWND*) params));
+inline FILETIME Win32GetlastWriteTime(char *filename) {
+    FILETIME lastWriteTime = {};
 
-    sf::Texture texture1;
-    if (!texture1.loadFromFile("../assets/test.png")) {
-        return EXIT_FAILURE;
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (GetFileAttributesExA(filename, GetFileExInfoStandard, &data)) {
+        lastWriteTime = data.ftLastWriteTime;
     }
-    sf::Sprite sprite1(texture1);
-    sprite1.setOrigin(sf::Vector2f(texture1.getSize()) / 2.f);
-    sprite1.setPosition(sprite1.getOrigin());
-    sprite1.setScale(5.0f, 5.0f);
+
+    return lastWriteTime;
+}
+
+struct GameFuncs {
+    UpdateGameFunc* UpdateGame;
+    FILETIME DLLlastWriteTime;
+    HMODULE dll;
+};
+
+static GameFuncs LoadGameFuncs() {
+    GameFuncs gameFuncs = {};
+
+    gameFuncs.DLLlastWriteTime = Win32GetlastWriteTime((char*)s_dllName);
+    QueryPerformanceCounter(&s_lastDLLLoadTime);
+
+    if (!CopyFileA(s_dllName, "replay_temp.dll", FALSE)) {
+        MessageBoxA(s_hwnd, "Could not write to replay_temp.dll!", "Error", MB_ICONHAND);
+    }
+
+    gameFuncs.dll = LoadLibraryA("replay_temp.dll");
+    if (!gameFuncs.dll) {
+        MessageBoxA(s_hwnd, "Could not find game .DLL!", "Error", MB_ICONHAND);
+    }
+    else {
+        gameFuncs.UpdateGame = (UpdateGameFunc*) GetProcAddress(gameFuncs.dll, "UpdateGame");
+        if (gameFuncs.UpdateGame) {
+            //gameFuncs.valid = true;
+        } else {
+            MessageBoxA(s_hwnd, "Could not load functions from .DLL!", "Error", MB_ICONHAND);
+        }
+    }
+
+    return gameFuncs;
+}
+
+struct GameMainParams {
+    Memory* memory;
+};
+
+unsigned int GameMain(void* gameParams) {
+    GameMainParams* params = (GameMainParams*) gameParams;
+    s_renderWindow = new sf::RenderWindow(s_hwnd);
+    GameFuncs gameFuncs = LoadGameFuncs();
+
+    LARGE_INTEGER lastTime;
+    QueryPerformanceCounter(&lastTime);
+
+    float accumulator = 0.0f;
 
     while (s_running.load()) {
         ParseMessages();
@@ -112,7 +163,22 @@ unsigned int GameMain(void* params) {
         //s_gameFuncs.UpdateGame(&gameInfo);
 
         s_renderWindow->clear();
-        s_renderWindow->draw(sprite1);
+
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        float deltaTime = float(now.QuadPart - lastTime.QuadPart) / float(s_perfFreq.QuadPart);
+        // Breakpoint guard
+        if (deltaTime > 1.0f) {
+            deltaTime = 1.0f / 60.0f;
+        }
+        lastTime = now;
+
+        accumulator += deltaTime;
+        //if (accumulator > TICK_TIME) {
+        //    accumulator -= TICK_TIME;
+            gameFuncs.UpdateGame(params->memory->permanentStorage, s_renderWindow);
+        //}
+
         s_renderWindow->display();
     }
 
@@ -124,7 +190,7 @@ int main() {
 
     HINSTANCE instance = GetModuleHandle(NULL);
 
-    auto className = L"StarlightClassName";
+    auto className = L"ReplayClassName";
 
     WNDCLASSEXW wndClass = { 0 };
     wndClass.cbSize = sizeof(WNDCLASSEXW);
@@ -160,10 +226,10 @@ int main() {
     }
 #endif
 
-    HWND hwnd = CreateWindowExW(
+    s_hwnd = CreateWindowExW(
         0L,
         className,
-        L"Starlight",
+        L"Replay",
         WS_OVERLAPPEDWINDOW,
         x,
         y,
@@ -187,7 +253,8 @@ int main() {
 
     // Spawn game thread
     s_running.store(true);
-    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, &hwnd, 0, NULL);
+	GameMainParams params = { &memory };
+    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, &params, 0, NULL);
     if (!thread) {
         return EXIT_FAILURE;
     }
@@ -205,7 +272,7 @@ int main() {
     CloseHandle(thread);
 
     // Close window
-    DestroyWindow(hwnd);
+    DestroyWindow(s_hwnd);
     UnregisterClass(className, instance);
     delete s_renderWindow;
 

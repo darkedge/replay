@@ -4,7 +4,7 @@ setlocal
 pushd %~dp0
 set t0=%time: =0%
 
-make -j%NUMBER_OF_PROCESSORS% "SL_RANDOM=%RANDOM%"
+make -j%NUMBER_OF_PROCESSORS% "MJ_RANDOM=%RANDOM%"
 
 :: Capture the end time before doing anything else
 set t=%time: =0%

@@ -7,3 +7,6 @@ win32/imgui.ini
 *.dll
 *.exe
 
+*.opendb
+*.db
+*.exp
