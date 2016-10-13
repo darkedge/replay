@@ -94,7 +94,9 @@ LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam
     return DefWindowProc(handle, message, wParam, lParam);
 }
 
-unsigned int GameMain(void*) {
+unsigned int GameMain(void* params) {
+    s_renderWindow = new sf::RenderWindow(*((HWND*) params));
+
     sf::Texture texture1;
     if (!texture1.loadFromFile("../assets/test.png")) {
         return EXIT_FAILURE;
@@ -113,7 +115,6 @@ unsigned int GameMain(void*) {
         s_renderWindow->draw(sprite1);
         s_renderWindow->display();
     }
-
 
     return EXIT_SUCCESS;
 }
@@ -174,8 +175,6 @@ int main() {
         NULL
     );
 
-    s_renderWindow = new sf::RenderWindow(hwnd);
-
 #ifdef MJ_DEBUG
     LPVOID baseAddress = (LPVOID)Terabytes(2);
 #else
@@ -188,7 +187,7 @@ int main() {
 
     // Spawn game thread
     s_running.store(true);
-    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, NULL, 0, NULL);
+    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, &hwnd, 0, NULL);
     if (!thread) {
         return EXIT_FAILURE;
     }
@@ -200,19 +199,6 @@ int main() {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
-
-/*
-    MSG message;
-    message.message = static_cast<UINT>(~WM_QUIT);
-    while (message.message != WM_QUIT) {
-        if (PeekMessage(&message, NULL, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&message);
-            DispatchMessage(&message);
-        } else {
-            
-        }
-    }
-*/
 
     // Close thread
     WaitForSingleObject(thread, INFINITE);
