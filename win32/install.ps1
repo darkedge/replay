@@ -98,7 +98,6 @@ DeleteFile("SFML-2.4.0-windows-vc14-64-bit.zip")
 
 # Build libraries
 # TODO: Do not put the .lib files in the win32 folder
-$ENET = "$externalDir\enet-1.3.13"
 $IMGUI = "$externalDir\imgui-1.49"
 $LUA = "$externalDir\LuaJIT-2.0.4\src"
 $SFML = "$externalDir\SFML-2.4.0"
@@ -106,11 +105,6 @@ $SFML = "$externalDir\SFML-2.4.0"
 $BUILD = $($workingDir + "build")
 
 $slBasicCompile = "/nologo /O2 /Gm- /MDd /GR- /EHs-c- /fp:fast /fp:except- /Oi"
-
-# ENet
-New-Item "$BUILD\enet" -type directory -force
-Execute("cl /c $slBasicCompile /Fo$BUILD/enet/ /I$ENET/include $ENET/*.c")
-Execute("lib /nologo /out:enet.lib $BUILD/enet/*.obj")
 
 # ImGui
 New-Item "$BUILD\imgui" -type directory -force
