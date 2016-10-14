@@ -159,7 +159,12 @@ struct GameMainParams {
 
 unsigned int GameMain(void* gameParams) {
     GameMainParams* params = (GameMainParams*) gameParams;
-    s_renderWindow = new sf::RenderWindow(s_hwnd);
+
+    {
+        sf::ContextSettings settings;
+        s_renderWindow = new sf::RenderWindow(s_hwnd, settings);
+    }
+
     GameFuncs gameFuncs = LoadGameFuncs();
 
     LARGE_INTEGER lastTime;
@@ -226,7 +231,7 @@ int CALLBACK WinMain(
 
     auto className = L"ReplayClassName";
 
-    WNDCLASSEXW wndClass = { 0 };
+    WNDCLASSEXW wndClass = {};
     wndClass.cbSize = sizeof(WNDCLASSEXW);
     wndClass.style = CS_CLASSDC;
     wndClass.lpfnWndProc = WndProc;
@@ -241,7 +246,7 @@ int CALLBACK WinMain(
     GetClientRect(GetDesktopWindow(), &desktopRect);
 
     // Get window rectangle
-    RECT windowRect = { 0, 0, 800, 600 }; // TODO: Config file?
+    RECT windowRect = { 0, 0, 1280, 720 }; // TODO: Config file?
     AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
     // Calculate window dimensions
@@ -264,7 +269,7 @@ int CALLBACK WinMain(
         0L,
         className,
         L"Replay",
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPED | WS_MINIMIZEBOX | WS_SYSMENU,
         x,
         y,
         windowWidth,
