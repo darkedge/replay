@@ -185,6 +185,9 @@ unsigned int GameMain(void* gameParams) {
     return EXIT_SUCCESS;
 }
 
+// Win32 GUI application signature
+// This makes the command line return immediately after starting the application
+// One disadvantage is that printf() logging is now disabled
 int CALLBACK WinMain(
     HINSTANCE   hInstance,
     HINSTANCE   hPrevInstance,
