@@ -114,30 +114,40 @@ inline FILETIME Win32GetLastWriteTime(char *filename) {
 struct GameFuncs {
     UpdateGameFunc* UpdateGame;
     FILETIME DLLLastWriteTime;
+    bool valid;
     HMODULE dll;
 };
+
+static void UnloadGameFuncs(GameFuncs* gameFuncs) {
+    if (gameFuncs->dll) {
+        FreeLibrary(gameFuncs->dll);
+    }
+
+    memset(gameFuncs, 0, sizeof(GameFuncs));
+}
 
 static GameFuncs LoadGameFuncs() {
     GameFuncs gameFuncs = {};
 
-    gameFuncs.DLLLastWriteTime = Win32GetLastWriteTime((char*)s_dllName);
-    QueryPerformanceCounter(&s_lastDLLLoadTime);
+    WIN32_FILE_ATTRIBUTE_DATA foo;
+    if (!GetFileAttributesExA("lock.tmp", GetFileExInfoStandard, &foo))
+    {
+        gameFuncs.DLLLastWriteTime = Win32GetLastWriteTime((char*)s_dllName);
+        QueryPerformanceCounter(&s_lastDLLLoadTime);
+        CopyFileA(s_dllName, "replay_temp.dll", FALSE);
 
-    if (!CopyFileA(s_dllName, "replay_temp.dll", FALSE)) {
-        MessageBoxA(s_hwnd, "Could not write to replay_temp.dll!", "Error", MB_ICONHAND);
-    }
-
-    gameFuncs.dll = LoadLibraryA("replay_temp.dll");
-    if (!gameFuncs.dll) {
-        MessageBoxA(s_hwnd, "Could not find game .DLL!", "Error", MB_ICONHAND);
-    }
-    else {
-        gameFuncs.UpdateGame = (UpdateGameFunc*) GetProcAddress(gameFuncs.dll, "UpdateGame");
-        if (gameFuncs.UpdateGame) {
-            //gameFuncs.valid = true;
-        } else {
-            MessageBoxA(s_hwnd, "Could not load functions from .DLL!", "Error", MB_ICONHAND);
+        gameFuncs.dll = LoadLibraryA("replay_temp.dll");
+        if (gameFuncs.dll) {
+            gameFuncs.UpdateGame = (UpdateGameFunc*)
+                GetProcAddress(gameFuncs.dll, "UpdateGame");
+            
+            gameFuncs.valid = !!gameFuncs.UpdateGame;
         }
+    }
+
+    // If any functions fail to load, set all to 0
+    if (!gameFuncs.valid) {
+        gameFuncs.UpdateGame = 0;
     }
 
     return gameFuncs;
@@ -160,13 +170,30 @@ unsigned int GameMain(void* gameParams) {
     while (s_running.load()) {
         ParseMessages();
         //g_renderApi->ImGuiNewFrame();
-        //s_gameFuncs.UpdateGame(&gameInfo);
-
-        s_renderWindow->clear();
+        //gameFuncs.UpdateGame(&gameInfo);
 
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
         float deltaTime = float(now.QuadPart - lastTime.QuadPart) / float(s_perfFreq.QuadPart);
+
+        {
+            // Reload DLL
+            FILETIME NewDLLWriteTime = Win32GetLastWriteTime((char*)s_dllName);
+
+            if (CompareFileTime(&NewDLLWriteTime, &gameFuncs.DLLLastWriteTime) != 0)
+            {
+                UnloadGameFuncs(&gameFuncs);
+                for(int i = 0; !gameFuncs.valid && (i < 100); i++)
+                {
+                    gameFuncs = LoadGameFuncs();
+                    Sleep(100);
+                }
+            }
+        }
+
+        s_renderWindow->clear();
+
+        
         // Breakpoint guard
         if (deltaTime > 1.0f) {
             deltaTime = 1.0f / 60.0f;
