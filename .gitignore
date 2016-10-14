@@ -10,3 +10,4 @@ win32/imgui.ini
 *.opendb
 *.db
 *.exp
+*.sublime-workspace
