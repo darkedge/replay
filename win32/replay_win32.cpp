@@ -100,7 +100,7 @@ LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam
     return DefWindowProc(handle, message, wParam, lParam);
 }
 
-inline FILETIME Win32GetlastWriteTime(char *filename) {
+inline FILETIME Win32GetLastWriteTime(char *filename) {
     FILETIME lastWriteTime = {};
 
     WIN32_FILE_ATTRIBUTE_DATA data;
@@ -113,14 +113,14 @@ inline FILETIME Win32GetlastWriteTime(char *filename) {
 
 struct GameFuncs {
     UpdateGameFunc* UpdateGame;
-    FILETIME DLLlastWriteTime;
+    FILETIME DLLLastWriteTime;
     HMODULE dll;
 };
 
 static GameFuncs LoadGameFuncs() {
     GameFuncs gameFuncs = {};
 
-    gameFuncs.DLLlastWriteTime = Win32GetlastWriteTime((char*)s_dllName);
+    gameFuncs.DLLLastWriteTime = Win32GetLastWriteTime((char*)s_dllName);
     QueryPerformanceCounter(&s_lastDLLLoadTime);
 
     if (!CopyFileA(s_dllName, "replay_temp.dll", FALSE)) {
