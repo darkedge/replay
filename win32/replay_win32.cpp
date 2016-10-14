@@ -185,7 +185,11 @@ unsigned int GameMain(void* gameParams) {
     return EXIT_SUCCESS;
 }
 
-int main() {
+int CALLBACK WinMain(
+    HINSTANCE   hInstance,
+    HINSTANCE   hPrevInstance,
+    LPSTR       lpCmdLine,
+    int         nCmdShow) {
     QueryPerformanceFrequency(&s_perfFreq);
 
     HINSTANCE instance = GetModuleHandle(NULL);
