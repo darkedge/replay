@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Window/Event.hpp>
 #include <assert.h>
+#include <imgui.h>
 
 struct GameState {
 	// Used for update, not interpolated
@@ -22,7 +23,7 @@ struct GameData {
 
 	GameState currentState; // Only init this one
 	GameState previousState;
-	GameState lerpState;
+	GameState lerpState; // TODO: This could be stored in previousState?
 
 	// Render data
 	sf::Texture textures[256];
@@ -46,6 +47,10 @@ static sf::Sprite* CreateSprite(GameData* gameState, const char* filename) {
 
 // No static variables here, everything is in GameData
 
+static void Destroy(GameData* gameData, sf::RenderWindow* window) {
+	// TODO
+}
+
 static void Init(GameData* gameData, sf::RenderWindow* window) {
 	GameState* gameState = &gameData->currentState;
 	gameState->player = CreateSprite(gameData, "../assets/PNG/ufoBlue.png");
@@ -57,16 +62,18 @@ static void Init(GameData* gameData, sf::RenderWindow* window) {
 static void Simulate(GameState* gameState) {
 	gameState->time += TICK_TIME;
 	gameState->player->setRotation(gameState->time * 50.0f);
+
+	ImGui::Begin("Another Window");
+    ImGui::Text("Hello");
+    ImGui::End();
 }
 
 // Does simple rendering
 static void Render(GameState* gameState, sf::RenderWindow* window) {
 	// TODO: Sprite sorting, double pointers
-	window->clear();
 	for (unsigned int i = 0; i < gameState->numSprites; i++) {
 		window->draw(gameState->sprites[i]);
 	}
-	window->display();
 }
 
 template <typename T>
@@ -104,12 +111,16 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
 	assert(memory);
 	assert(window);
 	GameData* gameData = (GameData*) memory->permanentStorage;
+	ImGui::SetCurrentContext(memory->imguiState);
 
 	sf::Event event;
 	while (window->pollEvent(event)) {
 		switch (event.type) {
 			case sf::Event::KeyPressed: {
-				gameData->initialized = false;
+				if (event.key.code == sf::Keyboard::R) {
+					Destroy(gameData, window);
+					gameData->initialized = false;
+				}
 				break;
 			}
 		}
@@ -132,4 +143,11 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
 	Lerp(&gameData->lerpState, &gameData->previousState, &gameData->currentState, t);
 
 	Render(&gameData->lerpState, window);
+}
+
+MJ_EXPORT(void) DebugGame(Memory* memory) {
+	assert(memory);
+	ImGui::Begin("Test window");
+	ImGui::Text("Hello World!");
+	ImGui::End();
 }

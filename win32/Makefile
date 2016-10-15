@@ -41,7 +41,7 @@ mjLink := /incremental:no
 mjLink += winmm.lib ws2_32.lib ole32.lib user32.lib
 mjLink += /LIBPATH:$(BUILD)/lib imgui.lib lua51.lib
 # TODO: Debug vs Release
-mjLink += /LIBPATH:$(SFML)\lib flac.lib freetype.lib jpeg.lib ogg.lib openal32.lib sfml-audio-d.lib sfml-graphics-d.lib sfml-main-d.lib sfml-network-d.lib sfml-system-d.lib sfml-window-d.lib vorbis.lib vorbisenc.lib vorbisfile.lib
+mjLink += /LIBPATH:$(SFML)\lib flac.lib freetype.lib jpeg.lib ogg.lib openal32.lib sfml-audio-d.lib sfml-graphics-d.lib sfml-main-d.lib sfml-network-d.lib sfml-system-d.lib sfml-window-d.lib vorbis.lib vorbisenc.lib vorbisfile.lib opengl32.lib
 
 all: replay.dll replay.exe assets
 

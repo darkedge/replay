@@ -1,15 +1,21 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/OpenGL.hpp>
 #include <windows.h>
 #include <process.h> // _beginthreadex
 #include <atomic>
 #include <stdint.h>
 #include <queue>
 #include <mutex>
+#include <imgui.h>
 
 #include "replay.h"
 #include "replay_game.h"
+#include "replay_imgui.h"
+
+#define MJ_WIDTH (1280)
+#define MJ_HEIGHT (720)
 
 class MSGQueue {
 public:
@@ -45,9 +51,12 @@ static MSGQueue s_queue;
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
 
+extern IMGUI_API LRESULT ImGui_SFML_WndProcHandler(HWND, UINT msg, WPARAM wParam, LPARAM lParam);
+
 void ParseMessages() {
     MSG msg;
     while (s_queue.Dequeue(&msg)) {
+        ImGui_SFML_WndProcHandler(msg.hwnd, msg.message, msg.wParam, msg.lParam);
 /*
         if (g_renderApi) {
             g_renderApi->ImGuiHandleEvent(&msg);
@@ -102,6 +111,7 @@ inline FILETIME Win32GetLastWriteTime(char *filename) {
 
 struct GameFuncs {
     UpdateGameFunc* UpdateGame;
+    DebugGameFunc* DebugGame;
     FILETIME DLLLastWriteTime;
     bool valid;
     HMODULE dll;
@@ -129,6 +139,8 @@ static GameFuncs LoadGameFuncs() {
         if (gameFuncs.dll) {
             gameFuncs.UpdateGame = (UpdateGameFunc*)
                 GetProcAddress(gameFuncs.dll, "UpdateGame");
+            gameFuncs.DebugGame = (DebugGameFunc*)
+                GetProcAddress(gameFuncs.dll, "DebugGame");
             
             gameFuncs.valid = !!gameFuncs.UpdateGame;
         }
@@ -155,6 +167,9 @@ unsigned int GameMain(void* gameParams) {
     }
 
     GameFuncs gameFuncs = LoadGameFuncs();
+
+    ImGui_SFML_Init(s_hwnd);
+    params->memory->imguiState = ImGui::GetCurrentContext();
 
     LARGE_INTEGER lastTime;
     QueryPerformanceCounter(&lastTime);
@@ -189,7 +204,18 @@ unsigned int GameMain(void* gameParams) {
         }
         lastTime = now;
 
+        ImGui_SFML_NewFrame();
+        glViewport(0, 0, MJ_WIDTH, MJ_HEIGHT);
+        s_renderWindow->clear();
+        s_renderWindow->pushGLStates();
         gameFuncs.UpdateGame(deltaTime, params->memory, s_renderWindow);
+        s_renderWindow->popGLStates();
+        gameFuncs.DebugGame(params->memory);
+        ImGui::Render();
+        s_renderWindow->display();
+
+        ImGui::Render();
+        
     }
 
     return EXIT_SUCCESS;
@@ -224,7 +250,7 @@ int CALLBACK WinMain(
     GetClientRect(GetDesktopWindow(), &desktopRect);
 
     // Get window rectangle
-    RECT windowRect = { 0, 0, 1280, 720 }; // TODO: Config file?
+    RECT windowRect = { 0, 0, MJ_WIDTH, MJ_HEIGHT };
     AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
     // Calculate window dimensions
@@ -264,6 +290,7 @@ int CALLBACK WinMain(
     LPVOID baseAddress = 0;
 #endif
 
+    // TODO: Move this to GameMain?
     Memory memory = {};
     memory.permanentStorageSize = Megabytes(256);
     memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
