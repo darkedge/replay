@@ -45,17 +45,6 @@ static MSGQueue s_queue;
 #define Gigabytes(Value) (Megabytes(Value)*1024LL)
 #define Terabytes(Value) (Gigabytes(Value)*1024LL)
 
-struct PlatformAPI {
-    // Platform functions go here
-};
-
-struct Memory {
-    uint64_t permanentStorageSize;
-    void* permanentStorage; // This gets casted to GameState
-
-    PlatformAPI platformAPI;
-};
-
 void ParseMessages() {
     MSG msg;
     while (s_queue.Dequeue(&msg)) {
@@ -170,8 +159,6 @@ unsigned int GameMain(void* gameParams) {
     LARGE_INTEGER lastTime;
     QueryPerformanceCounter(&lastTime);
 
-    float accumulator = 0.0f;
-
     while (s_running.load()) {
         ParseMessages();
         //g_renderApi->ImGuiNewFrame();
@@ -195,23 +182,14 @@ unsigned int GameMain(void* gameParams) {
                 }
             }
         }
-
-        s_renderWindow->clear();
-
         
         // Breakpoint guard
         if (deltaTime > 1.0f) {
-            deltaTime = 1.0f / 60.0f;
+            deltaTime = TICK_TIME;
         }
         lastTime = now;
 
-        accumulator += deltaTime;
-        //if (accumulator > TICK_TIME) {
-        //    accumulator -= TICK_TIME;
-            gameFuncs.UpdateGame(params->memory->permanentStorage, s_renderWindow);
-        //}
-
-        s_renderWindow->display();
+        gameFuncs.UpdateGame(deltaTime, params->memory, s_renderWindow);
     }
 
     return EXIT_SUCCESS;

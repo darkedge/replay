@@ -1,11 +1,21 @@
 #pragma once
 #include "replay.h"
+#include <stdint.h>
 
 namespace sf {
 	class RenderWindow;
 }
 
-#define GAME_UPDATE(name) void name(void*, sf::RenderWindow*)
-typedef GAME_UPDATE(UpdateGameFunc);
+struct PlatformAPI {
+    // Platform functions go here
+};
 
-MJ_EXPORT(void) UpdateGame(void*, sf::RenderWindow*);
+struct Memory {
+    uint64_t permanentStorageSize;
+    void* permanentStorage; // This gets casted to GameState
+
+    PlatformAPI platformAPI;
+};
+
+#define GAME_UPDATE(name) void name(float, Memory*, sf::RenderWindow*)
+typedef GAME_UPDATE(UpdateGameFunc);

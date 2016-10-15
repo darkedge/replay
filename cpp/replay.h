@@ -1,6 +1,6 @@
 #pragma once
 
-#define TICK_RATE (60)
+#define TICK_RATE (5)
 #define TICK_TIME (1.0f / TICK_RATE)
 
 #ifdef _MSC_VER
