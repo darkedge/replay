@@ -1,8 +1,8 @@
 #pragma once
 
-// ImGui requires ~30 (with default key repeating)
+// ImGui works comfortably with ~30 (with default key repeating)
 
-#define TICK_RATE (30)
+#define TICK_RATE (5)
 #define TICK_TIME (1.0f / TICK_RATE)
 
 #ifdef _MSC_VER

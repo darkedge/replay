@@ -74,13 +74,8 @@ static void Simulate(GameState* gameState) {
         // quit...
     }
 
-    ImGui::Begin("Simulate (TICK_RATE)");
-    static char buf[128] = "";
-    int i = 0;
-    while (ImGui::GetIO().InputCharacters[i]) i++;
-    ImGui::Text("InputCharacters: %i", i);
-    ImGui::InputText("test", buf, sizeof(buf));
-    ImGui::End();
+    static bool show_test_window = true;
+    ImGui::ShowTestWindow(&show_test_window);
 }
 
 // Does simple rendering

@@ -18,13 +18,10 @@
 #include "replay_imgui.h"
 
 // Data
-static INT64                    g_Time = 0;
-static INT64                    g_TicksPerSecond = 0;
-
-static HWND         g_hWnd;
-static bool         g_MousePressed[3];
-static float        g_MouseWheel;
-static GLuint       g_FontTexture;
+static HWND     g_hWnd;
+static bool     g_MousePressed[3];
+static float    g_MouseWheel;
+static GLuint   g_FontTexture;
 
 // This is the main rendering function that you have to implement and provide to ImGui (via setting up 'RenderDrawListsFn' in the ImGuiIO structure)
 // If text or lines are blurry when integrating ImGui in your engine:
@@ -194,11 +191,6 @@ bool ImGui_SFML_Init(void* hwnd)
 {
     g_hWnd = (HWND)hwnd;
 
-    if (!QueryPerformanceFrequency((LARGE_INTEGER *)&g_TicksPerSecond))
-        return false;
-    if (!QueryPerformanceCounter((LARGE_INTEGER *)&g_Time))
-        return false;
-
     ImGuiIO& io = ImGui::GetIO();
     io.KeyMap[ImGuiKey_Tab] = VK_TAB;                       // Keyboard mapping. ImGui will use those indices to peek into the io.KeyDown[] array that we will update during the application lifetime.
     io.KeyMap[ImGuiKey_LeftArrow] = VK_LEFT;
@@ -245,10 +237,7 @@ void ImGui_SFML_NewFrame()
     io.DisplaySize = ImVec2((float)(rect.right - rect.left), (float)(rect.bottom - rect.top));
 
     // Setup time step
-    INT64 current_time;
-    QueryPerformanceCounter((LARGE_INTEGER *)&current_time);
-    io.DeltaTime = 1.0f / 60.0f;
-    g_Time = current_time;
+    io.DeltaTime = TICK_TIME;
 
     // Read keyboard modifiers inputs
     io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
