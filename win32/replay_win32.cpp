@@ -54,28 +54,25 @@ static MSGQueue s_queue;
 
 extern IMGUI_API LRESULT ImGui_SFML_WndProcHandler(HWND, UINT msg, WPARAM wParam, LPARAM lParam);
 
-void ParseMessages() {
+void ParseMessages(Memory* memory) {
     MSG msg;
     while (s_queue.Dequeue(&msg)) {
         ImGui_SFML_WndProcHandler(msg.hwnd, msg.message, msg.wParam, msg.lParam);
-/*
-        if (g_renderApi) {
-            g_renderApi->ImGuiHandleEvent(&msg);
-        }
-        switch (msg.message)
-        {
-        case WM_KEYDOWN:
-            if (msg.wParam < NUM_KEYBOARD_KEYS) {
-                s_controls.ChangeKeyState((int)msg.wParam, true);
+
+        switch (msg.message) {
+            case WM_KEYDOWN: {
+                if (msg.wParam < NUM_KEYBOARD_KEYS) {
+                    memory->controls.ChangeKeyState((int)msg.wParam, true);
+                }
+                break;
             }
-            break;
-        case WM_KEYUP:
-            if (msg.wParam < NUM_KEYBOARD_KEYS) {
-                s_controls.ChangeKeyState((int)msg.wParam, false);
+            case WM_KEYUP: {
+                if (msg.wParam < NUM_KEYBOARD_KEYS) {
+                    memory->controls.ChangeKeyState((int)msg.wParam, false);
+                }
+                break;
             }
-            break;
         }
-*/
     }
 }
 
@@ -164,6 +161,10 @@ unsigned int GameMain(void*) {
     LPVOID baseAddress = 0;
 #endif
     memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    memory.controls.keyboard[MJControls::Left] = VK_LEFT;
+    memory.controls.keyboard[MJControls::Right] = VK_RIGHT;
+    memory.controls.keyboard[MJControls::Up] = VK_UP;
+    memory.controls.keyboard[MJControls::Down] = VK_DOWN;
 
     {
         sf::ContextSettings settings;
@@ -181,7 +182,7 @@ unsigned int GameMain(void*) {
     ImGui::NewFrame();
 
     while (s_running.load()) {
-        ParseMessages();
+        ParseMessages(&memory);
 
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);

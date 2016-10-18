@@ -32,6 +32,9 @@ struct GameData {
 };
 
 static sf::Sprite* CreateSprite(GameData* gameState, const char* filename) {
+    assert(gameState);
+    assert(filename);
+
     // Create texture
     sf::Texture* texture = gameState->textures + gameState->numTextures++;
     new (texture) sf::Texture();
@@ -49,30 +52,51 @@ static sf::Sprite* CreateSprite(GameData* gameState, const char* filename) {
 // No static variables here, everything is in GameData
 
 static void Destroy(GameData* gameData, sf::RenderWindow* window) {
+    assert(gameData);
+    assert(window);
+
     // TODO
 }
 
-static void Init(GameData* gameData, sf::RenderWindow* window) {
+static void Init(GameData* gameData, MJControls* controls, sf::RenderWindow* window) {
+    assert(gameData);
+    assert(controls);
+    assert(window);
+
     GameState* gameState = &gameData->currentState;
     gameState->player = CreateSprite(gameData, "../assets/PNG/ufoBlue.png");
     gameState->player->setPosition(gameState->player->getOrigin());
-    //gameState->player->setScale(1.0f, 1.0f);
+
+    controls->AssociateKey(MJControls::Left, "Left");
+    controls->AssociateKey(MJControls::Right, "Right");
+    controls->AssociateKey(MJControls::Up, "Up");
+    controls->AssociateKey(MJControls::Down, "Down");
 }
 
 // This runs at a fixed FPS
-static void Simulate(GameState* gameState) {
+static void Simulate(GameState* gameState, MJControls* controls) {
+    assert(gameState);
+    assert(controls);
+
     gameState->time += TICK_TIME;
     gameState->player->setRotation(gameState->time * 50.0f);
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-        // move left...
+    sf::Sprite* player = gameState->player;
+    sf::Vector2f position = player->getPosition();
+    // This misses inputs!!
+    if (controls->GetButton("Left")) {
+        position.x -= TICK_TIME * 300.0f;
     }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-        // move right...
+    if (controls->GetButton("Right")) {
+        position.x += TICK_TIME * 300.0f;
     }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
-        // quit...
+    if (controls->GetButton("Up")) {
+        position.y -= TICK_TIME * 300.0f;
     }
+    if (controls->GetButton("Down")) {
+        position.y += TICK_TIME * 300.0f;
+    }
+    player->setPosition(position);
 
     static bool show_test_window = true;
     ImGui::ShowTestWindow(&show_test_window);
@@ -80,6 +104,9 @@ static void Simulate(GameState* gameState) {
 
 // Does simple rendering
 static void Render(GameState* gameState, sf::RenderWindow* window) {
+    assert(gameState);
+    assert(window);
+
     // TODO: Sprite sorting, double pointers
     for (unsigned int i = 0; i < gameState->numSprites; i++) {
         window->draw(gameState->sprites[i]);
@@ -93,6 +120,12 @@ static T Lerp(T v0, T v1, float t) {
 
 // Runs once per frame, creates an interpolated state
 static void Lerp(GameState* dst, GameState* src0, GameState* src1, float t) {
+    assert(dst);
+    assert(src0);
+    assert(src1);
+    assert(t >= 0.0f);
+    assert(t <= 1.0f);
+
     // First do a memcpy because of extra sfml data
     memcpy(dst, src0, sizeof(GameState));
 
@@ -120,11 +153,13 @@ static void Lerp(GameState* dst, GameState* src0, GameState* src1, float t) {
 MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     assert(memory);
     assert(window);
+
     GameData* gameData = (GameData*) memory->permanentStorage;
+    MJControls* controls = &memory->controls;
     ImGui::SetCurrentContext(memory->imguiState);
 
     if (!gameData->initialized) {
-        Init(gameData, window);
+        Init(gameData, controls, window);
         gameData->initialized = true;
     }
 
@@ -133,7 +168,9 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     while (accumulator >= TICK_TIME) {
         memcpy(&gameData->previousState, &gameData->currentState, sizeof(GameState));
         ImGui::NewFrame();
-        Simulate(&gameData->currentState);
+        controls->BeginFrame();
+        Simulate(&gameData->currentState, controls);
+        controls->EndFrame();
         accumulator -= TICK_TIME;
     }
 
@@ -148,3 +185,4 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     ImGui::Render();
     window->display();
 }
+

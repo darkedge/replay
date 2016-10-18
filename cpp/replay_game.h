@@ -1,5 +1,6 @@
 #pragma once
 #include "replay.h"
+#include "mj_controls.h"
 #include <stdint.h>
 
 namespace sf {
@@ -18,6 +19,8 @@ struct Memory {
 
     ImGuiContext* imguiState;
     PlatformAPI platformAPI;
+
+    MJControls controls;
 };
 
 #define GAME_UPDATE(name) void name(float, Memory*, sf::RenderWindow*)
