@@ -14,6 +14,7 @@
 
 #include <SFML/OpenGL.hpp>
 #include <imgui.h>
+#include "replay.h"
 #include "replay_imgui.h"
 
 // Data
@@ -246,7 +247,7 @@ void ImGui_SFML_NewFrame()
     // Setup time step
     INT64 current_time;
     QueryPerformanceCounter((LARGE_INTEGER *)&current_time);
-    io.DeltaTime = (float)(current_time - g_Time) / g_TicksPerSecond;
+    io.DeltaTime = 1.0f / 60.0f;
     g_Time = current_time;
 
     // Read keyboard modifiers inputs
@@ -258,10 +259,4 @@ void ImGui_SFML_NewFrame()
     // io.MousePos : filled by WM_MOUSEMOVE events
     // io.MouseDown : filled by WM_*BUTTON* events
     // io.MouseWheel : filled by WM_MOUSEWHEEL events
-
-    // Hide OS mouse cursor if ImGui is drawing it
-    SetCursor(io.MouseDrawCursor ? NULL : LoadCursor(NULL, IDC_ARROW));
-
-    // Start the frame
-    ImGui::NewFrame();
 }

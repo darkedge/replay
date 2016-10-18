@@ -16,6 +16,7 @@
 
 #define MJ_WIDTH (1280)
 #define MJ_HEIGHT (720)
+#define MJ_CONSOLE 0
 
 class MSGQueue {
 public:
@@ -154,12 +155,15 @@ static GameFuncs LoadGameFuncs() {
     return gameFuncs;
 }
 
-struct GameMainParams {
-    Memory* memory;
-};
-
-unsigned int GameMain(void* gameParams) {
-    GameMainParams* params = (GameMainParams*) gameParams;
+unsigned int GameMain(void*) {
+    Memory memory = {};
+    memory.permanentStorageSize = Megabytes(256);
+#ifdef MJ_DEBUG
+    LPVOID baseAddress = (LPVOID)Terabytes(2);
+#else
+    LPVOID baseAddress = 0;
+#endif
+    memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
     {
         sf::ContextSettings settings;
@@ -169,15 +173,15 @@ unsigned int GameMain(void* gameParams) {
     GameFuncs gameFuncs = LoadGameFuncs();
 
     ImGui_SFML_Init(s_hwnd);
-    params->memory->imguiState = ImGui::GetCurrentContext();
+    memory.imguiState = ImGui::GetCurrentContext();
 
     LARGE_INTEGER lastTime;
     QueryPerformanceCounter(&lastTime);
+    ImGui_SFML_NewFrame();
+    ImGui::NewFrame();
 
     while (s_running.load()) {
         ParseMessages();
-        //g_renderApi->ImGuiNewFrame();
-        //gameFuncs.UpdateGame(&gameInfo);
 
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
@@ -205,17 +209,9 @@ unsigned int GameMain(void* gameParams) {
         lastTime = now;
 
         ImGui_SFML_NewFrame();
-        glViewport(0, 0, MJ_WIDTH, MJ_HEIGHT);
-        s_renderWindow->clear();
-        s_renderWindow->pushGLStates();
-        gameFuncs.UpdateGame(deltaTime, params->memory, s_renderWindow);
-        s_renderWindow->popGLStates();
-        gameFuncs.DebugGame(params->memory);
-        ImGui::Render();
-        s_renderWindow->display();
 
-        ImGui::Render();
-        
+        glViewport(0, 0, MJ_WIDTH, MJ_HEIGHT);
+        gameFuncs.UpdateGame(deltaTime, &memory, s_renderWindow);        
     }
 
     return EXIT_SUCCESS;
@@ -224,11 +220,16 @@ unsigned int GameMain(void* gameParams) {
 // Win32 GUI application signature
 // This makes the command line return immediately after starting the application
 // One disadvantage is that printf() logging is now disabled
+#if MJ_CONSOLE
+int main()
+#else
 int CALLBACK WinMain(
     HINSTANCE   hInstance,
     HINSTANCE   hPrevInstance,
     LPSTR       lpCmdLine,
-    int         nCmdShow) {
+    int         nCmdShow)
+#endif
+{
     QueryPerformanceFrequency(&s_perfFreq);
 
     HINSTANCE instance = GetModuleHandle(NULL);
@@ -264,7 +265,8 @@ int CALLBACK WinMain(
     wchar_t computerName[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD dwSize = sizeof(computerName);
     GetComputerNameW(computerName, &dwSize);
-    if (wcscmp(computerName, L"JOTARO") == 0) {
+    if (wcscmp(computerName, L"JOTARO") == 0
+    || wcscmp(computerName, L"JOSUKE") == 0) {
         x += 1920;
     }
 #endif
@@ -284,21 +286,9 @@ int CALLBACK WinMain(
         NULL
     );
 
-#ifdef MJ_DEBUG
-    LPVOID baseAddress = (LPVOID)Terabytes(2);
-#else
-    LPVOID baseAddress = 0;
-#endif
-
-    // TODO: Move this to GameMain?
-    Memory memory = {};
-    memory.permanentStorageSize = Megabytes(256);
-    memory.permanentStorage = VirtualAlloc(baseAddress, (size_t) memory.permanentStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-
     // Spawn game thread
     s_running.store(true);
-	GameMainParams params = { &memory };
-    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, &params, 0, NULL);
+    HANDLE thread = (HANDLE) _beginthreadex(NULL, 0, GameMain, NULL, 0, NULL);
     if (!thread) {
         return EXIT_FAILURE;
     }
