@@ -1,7 +1,5 @@
 #pragma once
 
-// ImGui works comfortably with 30+ (with default key repeating)
-
 #define TICK_RATE (5)
 #define TICK_TIME (1.0f / TICK_RATE)
 

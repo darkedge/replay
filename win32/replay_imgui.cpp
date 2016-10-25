@@ -236,9 +236,6 @@ void ImGui_SFML_NewFrame()
     GetClientRect(g_hWnd, &rect);
     io.DisplaySize = ImVec2((float)(rect.right - rect.left), (float)(rect.bottom - rect.top));
 
-    // Setup time step
-    io.DeltaTime = TICK_TIME;
-
     // Read keyboard modifiers inputs
     io.KeyCtrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     io.KeyShift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;

@@ -97,9 +97,6 @@ static void Simulate(GameState* gameState, MJControls* controls) {
         position.y += TICK_TIME * 300.0f;
     }
     player->setPosition(position);
-
-    static bool show_test_window = true;
-    ImGui::ShowTestWindow(&show_test_window);
 }
 
 // Does simple rendering
@@ -150,6 +147,20 @@ static void Lerp(GameState* dst, GameState* src0, GameState* src1, float t) {
     }
 }
 
+static void DrawDebugMenu(GameState* gameState) {
+    static bool show_test_window = true;
+    ImGui::ShowTestWindow(&show_test_window);
+
+    ImGui::Begin("DrawDebugMenu");
+    ImGui::Text("Hello World!");
+    sf::Vector2f pos = gameState->player->getPosition();
+    float v[] = { pos.x, pos.y };
+    if (ImGui::InputFloat2("Player position", v, 3, ImGuiInputTextFlags_EnterReturnsTrue)) {
+        gameState->player->setPosition(sf::Vector2f(v[0], v[1]));
+    }
+    ImGui::End();
+}
+
 MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     assert(memory);
     assert(window);
@@ -167,7 +178,6 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     accumulator += dt;
     while (accumulator >= TICK_TIME) {
         memcpy(&gameData->previousState, &gameData->currentState, sizeof(GameState));
-        ImGui::NewFrame();
         controls->BeginFrame();
         Simulate(&gameData->currentState, controls);
         controls->EndFrame();
@@ -182,7 +192,11 @@ MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
     Render(&gameData->lerpState, window);
     window->popGLStates();
 
+    ImGui::GetIO().DeltaTime = dt;
+    ImGui::NewFrame();
+    DrawDebugMenu(&gameData->currentState);
     ImGui::Render();
+
     window->display();
 }
 
