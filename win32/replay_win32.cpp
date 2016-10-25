@@ -215,6 +215,8 @@ unsigned int GameMain(void*) {
         gameFuncs.UpdateGame(deltaTime, &memory, s_renderWindow);        
     }
 
+    ImGui::Shutdown();
+
     return EXIT_SUCCESS;
 }
 
