@@ -4,7 +4,9 @@
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/Keyboard.hpp>
 #include <assert.h>
+#ifdef MJ_DEBUG
 #include <imgui.h>
+#endif
 
 struct GameState {
     // Used for update, not interpolated
@@ -18,9 +20,30 @@ struct GameState {
     //unsigned int numTexts;
 };
 
+struct Demo {
+    std::string name;
+    unsigned int startFrame;
+    unsigned int numFrames;
+};
+
+struct Debug {
+    std::vector<Demo> demos;
+    int selectedDemo;
+    int demoSeekBar;
+    bool looping;
+    enum State {
+        Idle,
+        Recording,
+        Playing,
+        Paused
+    };
+    State state;
+};
+
 // Zero-initialized
 struct GameData {
     bool initialized;
+    float accumulator; // Stores deltaTime
 
     GameState currentState; // Only init this one
     GameState previousState;
@@ -29,6 +52,10 @@ struct GameData {
     // Render data
     sf::Texture textures[256];
     unsigned int numTextures;
+
+#ifdef MJ_DEBUG
+    Debug debug;
+#endif
 };
 
 static sf::Sprite* CreateSprite(GameData* gameState, const char* filename) {
@@ -147,7 +174,9 @@ static void Lerp(GameState* dst, GameState* src0, GameState* src1, float t) {
     }
 }
 
-static void DrawDebugMenu(GameState* gameState) {
+#ifdef MJ_DEBUG
+static void DrawDebugMenu(GameState* gameState, Debug* debug) {
+    // Keep demo around for looking up stuff
     static bool show_test_window = true;
     ImGui::ShowTestWindow(&show_test_window);
 
@@ -159,43 +188,139 @@ static void DrawDebugMenu(GameState* gameState) {
         gameState->player->setPosition(sf::Vector2f(v[0], v[1]));
     }
     ImGui::End();
-}
 
-MJ_EXPORT(void) UpdateGame(float dt, Memory* memory, sf::RenderWindow* window) {
+
+    {
+        ImGui::Begin("Demo Menu");
+
+        ImGui::Text((std::string("Status: ") + std::to_string(debug->state)).c_str());
+
+        // Demo recording/playback
+        if (debug->demos.size() == 0) {
+            debug->selectedDemo = -1;
+        }
+
+        // Get demo info
+        int numTicks = 0;
+        if (debug->selectedDemo != -1) {
+            numTicks = debug->demos[debug->selectedDemo].numFrames;
+        }
+
+        ImGui::SliderInt("", &debug->demoSeekBar, 0, numTicks);
+        ImGui::SameLine();
+        ImGui::Checkbox("Loop", &debug->looping);
+        if (ImGui::Button("Save Snapshot")) {
+            // TODO
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Take Over")) {
+            // TODO
+        }
+        
+        ImGui::PushID(0);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(2/7.0f, 0.6f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(2/7.0f, 0.7f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(2/7.0f, 0.8f, 0.8f));
+        if (ImGui::Button("Play")) {
+            // TODO
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+        
+        ImGui::SameLine();
+        ImGui::PushID(1);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(0/7.0f, 0.6f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0/7.0f, 0.7f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0/7.0f, 0.8f, 0.8f));
+        if (ImGui::Button("Record")) {
+            // TODO
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+        
+        ImGui::SameLine();
+        ImGui::PushID(2);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(1/7.0f, 0.6f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(1/7.0f, 0.7f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(1/7.0f, 0.8f, 0.8f));
+        if (ImGui::Button("Pause")) {
+            // TODO
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Stop")) {
+            // TODO
+        }
+
+        // List demo's
+        ImGui::Text((std::string("Stored demo's: ") + std::to_string(debug->demos.size())).c_str());
+        ImGui::Columns(3, "Demo's");
+        ImGui::Separator();
+        ImGui::Text("Name"); ImGui::NextColumn();
+        ImGui::Text("Start"); ImGui::NextColumn();
+        ImGui::Text("Length"); ImGui::NextColumn();
+        ImGui::Separator();
+        for (int i = 0; i < debug->demos.size(); i++) {
+            Demo* demo = debug->demos.data() + i;
+            if (ImGui::Selectable(demo->name.c_str(), debug->selectedDemo == i, ImGuiSelectableFlags_SpanAllColumns)) {
+                debug->selectedDemo = i;
+            }
+            ImGui::NextColumn();
+            ImGui::Text(std::to_string(demo->startFrame).c_str()); ImGui::NextColumn();
+            ImGui::Text(std::to_string(demo->numFrames).c_str()); ImGui::NextColumn();
+        }
+        ImGui::Columns(1);
+        ImGui::Separator();
+
+        ImGui::End();
+    }
+}
+#endif
+
+MJ_EXPORT(void) UpdateGame(float deltaTime, Memory* memory, sf::RenderWindow* window) {
     assert(memory);
     assert(window);
 
     GameData* gameData = (GameData*) memory->permanentStorage;
     MJControls* controls = &memory->controls;
+#ifdef MJ_DEBUG
     ImGui::SetCurrentContext(memory->imguiState);
+#endif
 
     if (!gameData->initialized) {
         Init(gameData, controls, window);
         gameData->initialized = true;
     }
 
-    static float accumulator;
-    accumulator += dt;
-    while (accumulator >= TICK_TIME) {
+    gameData->accumulator += deltaTime;
+    while (gameData->accumulator >= TICK_TIME) {
         memcpy(&gameData->previousState, &gameData->currentState, sizeof(GameState));
         controls->BeginFrame();
         Simulate(&gameData->currentState, controls);
         controls->EndFrame();
-        accumulator -= TICK_TIME;
+        gameData->accumulator -= TICK_TIME;
     }
 
-    float t = accumulator / TICK_TIME;
+    float t = gameData->accumulator / TICK_TIME;
     Lerp(&gameData->lerpState, &gameData->previousState, &gameData->currentState, t);
 
     window->clear();
+#ifdef MJ_DEBUG
     window->pushGLStates();
+#endif
     Render(&gameData->lerpState, window);
+#ifdef MJ_DEBUG
     window->popGLStates();
+#endif
 
-    ImGui::GetIO().DeltaTime = dt;
+#ifdef MJ_DEBUG
+    ImGui::GetIO().DeltaTime = deltaTime;
     ImGui::NewFrame();
-    DrawDebugMenu(&gameData->currentState);
+    DrawDebugMenu(&gameData->currentState, &gameData->debug);
     ImGui::Render();
+#endif
 
     window->display();
 }
