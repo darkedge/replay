@@ -44,6 +44,7 @@ struct Debug {
 struct GameData {
     bool initialized;
     float accumulator; // Stores deltaTime
+    unsigned int numTicks;
 
     GameState currentState; // Only init this one
     GameState previousState;
@@ -301,6 +302,7 @@ MJ_EXPORT(void) UpdateGame(float deltaTime, Memory* memory, sf::RenderWindow* wi
         Simulate(&gameData->currentState, controls);
         controls->EndFrame();
         gameData->accumulator -= TICK_TIME;
+        gameData->numTicks++;
     }
 
     float t = gameData->accumulator / TICK_TIME;
