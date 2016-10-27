@@ -176,7 +176,9 @@ static void Lerp(GameState* dst, GameState* src0, GameState* src1, float t) {
 }
 
 #ifdef MJ_DEBUG
-static void DrawDebugMenu(GameState* gameState, Debug* debug) {
+static void DrawDebugMenu(GameData* gameData, Debug* debug) {
+    GameState* gameState = &gameData->currentState;
+
     // Keep demo around for looking up stuff
     static bool show_test_window = true;
     ImGui::ShowTestWindow(&show_test_window);
@@ -195,6 +197,7 @@ static void DrawDebugMenu(GameState* gameState, Debug* debug) {
         ImGui::Begin("Demo Menu");
 
         ImGui::Text((std::string("Status: ") + std::to_string(debug->state)).c_str());
+        ImGui::Text((std::string("Frame index: ") + std::to_string(gameData->numTicks)).c_str());
 
         // Demo recording/playback
         if (debug->demos.size() == 0) {
@@ -320,7 +323,7 @@ MJ_EXPORT(void) UpdateGame(float deltaTime, Memory* memory, sf::RenderWindow* wi
 #ifdef MJ_DEBUG
     ImGui::GetIO().DeltaTime = deltaTime;
     ImGui::NewFrame();
-    DrawDebugMenu(&gameData->currentState, &gameData->debug);
+    DrawDebugMenu(gameData, &gameData->debug);
     ImGui::Render();
 #endif
 
